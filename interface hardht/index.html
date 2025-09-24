@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Après-Vente</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 2rem;
+      color: #333;
+    }
+    h2 {
+      color: #2c3e50;
+    }
+    section {
+      background: #fff;
+      padding: 1rem 2rem;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input, textarea, select, button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      background: #3498db;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #2980b9;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 1rem;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🔧 Interface Service Après-Vente</h1>
+
+<section>
+  <h2>📝 Créer une demande</h2>
+  <textarea id="descDemande" placeholder="Décris ton problème..."></textarea>
+  <button onclick="creerDemande()">Créer</button>
+</section>
+
+<section>
+  <h2>📄 Consulter une demande</h2>
+  <input type="number" id="idConsulter" placeholder="ID de la demande">
+  <button onclick="consulterDemande()">Voir</button>
+  <pre id="resultatDemande"></pre>
+</section>
+
+<section>
+  <h2>🔄 Mettre à jour une demande (agent)</h2>
+  <input type="number" id="idUpdate" placeholder="ID de la demande">
+  <select id="statutUpdate">
+    <option value="0">En attente</option>
+    <option value="1">En cours</option>
+    <option value="2">Résolu</option>
+    <option value="3">Fermé</option>
+  </select>
+  <textarea id="reponseUpdate" placeholder="Réponse de l'agent..."></textarea>
+  <button onclick="mettreAJourDemande()">Mettre à jour</button>
+</section>
+
+<section>
+  <h2>💬 Ajouter un retour client</h2>
+  <input type="number" id="idRetour" placeholder="ID de la demande">
+  <textarea id="retourClient" placeholder="Ton retour..."></textarea>
+  <button onclick="ajouterRetourClient()">Envoyer retour</button>
+</section>
+
+<section>
+  <h2>📜 Lister mes demandes</h2>
+  <button onclick="listerDemandes()">Voir mes demandes</button>
+  <pre id="mesDemandes"></pre>
+</section>
+
+<section>
+  <h2>👥 Ajouter un agent (admin)</h2>
+  <input type="text" id="nouvelAgent" placeholder="Adresse Ethereum de l’agent">
+  <button onclick="ajouterAgent()">Ajouter</button>
+</section>
+<section>
+  <input type="text" id="newOwner" placeholder="Nouvelle adresse du propriétaire">
+<button onclick="changerProprietaire()">Changer Propriétaire</button>
+
+</section>
+
+<script>
+  const ABI = [{
+    
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "client",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "description",
+          "type": "string"
+        }
+      ],
+      "name": "DemandeCree",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum ServiceApresVente.Statut",
+          "name": "statut",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "reponseAgent",
+          "type": "string"
+        }
+      ],
+      "name": "DemandeMiseAJour",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "retourClient",
+          "type": "string"
+        }
+      ],
+      "name": "RetourClientAjoute",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "agents",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_agent",
+          "type": "address"
+        }
+      ],
+      "name": "ajouterAgent",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_id",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_retour",
+          "type": "string"
+        }
+      ],
+      "name": "ajouterRetourClient",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_nouveau",
+          "type": "address"
+        }
+      ],
+      "name": "changerProprietaire",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "compteurDemandes",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_id",
+          "type": "uint256"
+        }
+      ],
+      "name": "consulterDemande",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "enum ServiceApresVente.Statut",
+          "name": "",
+          "type": "uint8"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_description",
+          "type": "string"
+        }
+      ],
+      "name": "creerDemande",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "demandes",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "client",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "internalType": "enum ServiceApresVente.Statut",
+          "name": "statut",
+          "type": "uint8"
+        },
+        {
+          "internalType": "string",
+          "name": "reponseAgent",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "retourClient",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "dateCreation",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "dateDerniereMAJ",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "demandesParClient",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_client",
+          "type": "address"
+        }
+      ],
+      "name": "listerDemandesClient",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_id",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum ServiceApresVente.Statut",
+          "name": "_statut",
+          "type": "uint8"
+        },
+        {
+          "internalType": "string",
+          "name": "_reponseAgent",
+          "type": "string"
+        }
+      ],
+      "name": "mettreAJourDemande",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proprietaire",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+];
+  const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
+
+  let web3;
+  let contract;
+  let account;
+
+  window.addEventListener('load', async () => {
+    if (window.ethereum) {
+      web3 = new Web3(window.ethereum);
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      const accounts = await web3.eth.getAccounts();
+      account = accounts[0];
+      contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
+    } else {
+      alert("Installe MetaMask pour continuer.");
+    }
+  });
+
+  async function creerDemande() {
+    const desc = document.getElementById("descDemande").value;
+    await contract.methods.creerDemande(desc).send({ from: account });
+    alert("✅ Demande créée !");
+  }
+
+  async function consulterDemande() {
+  const id = document.getElementById("idConsulter").value;
+  try {
+    const data = await contract.methods.consulterDemande(id).call();
+
+    const STATUTS = ["En Attente", "En Cours", "Résolu", "Fermé"];
+
+    const demande = {
+      ID: data[0],
+      Client: data[1],
+      Description: data[2],
+      Statut: STATUTS[parseInt(data[3])],
+      "Réponse Agent": data[4] || "Aucune réponse",
+      "Retour Client": data[5] || "Aucun retour",
+      "Date de Création": new Date(parseInt(data[6]) * 1000).toLocaleString(),
+      "Dernière Mise à Jour": new Date(parseInt(data[7]) * 1000).toLocaleString()
+    };
+
+    let resultatHTML = '';
+    for (const [cle, valeur] of Object.entries(demande)) {
+      resultatHTML += `<strong>${cle}:</strong> ${valeur}<br>`;
+    }
+
+    document.getElementById("resultatDemande").innerHTML = resultatHTML;
+  } catch (error) {
+    console.error("Erreur lors de la consultation :", error);
+    document.getElementById("resultatDemande").textContent = "❌ Demande introuvable ou erreur lors de la lecture.";
+  }
+}
+
+
+async function mettreAJourDemande() {
+  const id = document.getElementById("idUpdate").value;
+  const statut = parseInt(document.getElementById("statutUpdate").value);  
+  const reponse = document.getElementById("reponseUpdate").value;
+
+  try {
+    const isAgent = await contract.methods.agents(account).call();
+    if (!isAgent) {
+      alert("❌ Vous n'êtes pas autorisé (pas un agent)");
+      return;
+    }
+
+    await contract.methods.mettreAJourDemande(id, statut, reponse).send({ from: account });
+
+    alert("✅ Demande mise à jour !");
+    setTimeout(() => {
+      consulterDemande(); // Recharge les données
+    }, 2000);
+  } catch (error) {
+    console.error("Erreur de mise à jour :", error);
+    alert("❌ Échec de la mise à jour !");
+  }
+}
+
+
+  async function ajouterRetourClient() {
+    const id = document.getElementById("idRetour").value;
+    const retour = document.getElementById("retourClient").value;
+    await contract.methods.ajouterRetourClient(id, retour).send({ from: account });
+    alert("✅ Retour envoyé !");
+  }
+
+  async function listerDemandes() {
+    const ids = await contract.methods.listerDemandesClient(account).call();
+    document.getElementById("mesDemandes").textContent = JSON.stringify(ids, null, 2);
+  }
+
+  async function ajouterAgent() {
+  const addr = document.getElementById("nouvelAgent").value;
+
+  const owner = await contract.methods.proprietaire().call();
+  if (account.toLowerCase() !== owner.toLowerCase()) {
+    alert("❌ Seul le propriétaire peut ajouter des agents.");
+    return;
+  }
+
+  try {
+    await contract.methods.ajouterAgent(addr).send({ from: account });
+    alert("✅ Agent ajouté !");
+  } catch (error) {
+    console.error("Erreur lors de l'ajout :", error);
+    alert("❌ Impossible d'ajouter l'agent.");
+  }
+}
+async function changerProprietaire() {
+  const newOwner = document.getElementById('newOwner').value;
+  try {
+    await contract.methods.changerProprietaire(newOwner).send({ from: account });
+    alert("✅ Propriétaire changé avec succès !");
+  } catch (err) {
+    console.error(err);
+    alert("❌ Erreur : " + err.message);
+  }
+}
+
+
+
+</script>
+
+</body>
+</html>
